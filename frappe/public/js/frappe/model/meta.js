@@ -87,7 +87,7 @@ $.extend(frappe.meta, {
 	},
 
 	sort_docfields: function(docs) {
-		return values(docs).sort(function(a, b) { return a.idx - b.idx });
+		return $.map(docs, function(d) { return d; }).sort(function(a, b) { return a.idx - b.idx });
 	},
 
 	get_docfield_copy: function(doctype, name) {
@@ -107,6 +107,11 @@ $.extend(frappe.meta, {
 
 	has_field: function(dt, fn) {
 		return frappe.meta.docfield_map[dt][fn];
+	},
+
+	get_table_fields: function(dt) {
+		return $.map(frappe.meta.docfield_list[dt], function(d) {
+			return d.fieldtype==='Table' ? d : null});
 	},
 
 	get_parentfield: function(parent_dt, child_dt) {

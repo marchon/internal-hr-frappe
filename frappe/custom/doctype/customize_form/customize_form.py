@@ -16,11 +16,13 @@ from frappe.core.doctype.doctype.doctype import validate_fields_for_doctype
 doctype_properties = {
 	'search_fields': 'Data',
 	'title_field': 'Data',
+	'image_field': 'Data',
 	'sort_field': 'Data',
 	'sort_order': 'Data',
 	'default_print_format': 'Data',
 	'read_only_onload': 'Check',
 	'allow_copy': 'Check',
+	'quick_entry': 'Check',
 	'max_attachments': 'Int'
 }
 

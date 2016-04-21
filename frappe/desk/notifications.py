@@ -2,6 +2,7 @@
 # MIT License. See license.txt
 
 from __future__ import unicode_literals
+
 import frappe
 from frappe.utils import time_diff_in_seconds, now, now_datetime, DATETIME_FORMAT
 from dateutil.relativedelta import relativedelta
@@ -87,8 +88,8 @@ def get_notifications_for_doctypes(config, notification_count):
 			else:
 				try:
 					if isinstance(condition, dict):
-						result = frappe.get_list(d, fields=["count(*)"],
-							filters=condition, as_list=True)[0][0]
+						result = len(frappe.get_list(d, fields=["name"],
+							filters=condition, limit_page_length = 21, as_list=True))
 					else:
 						result = frappe.get_attr(condition)()
 
@@ -161,3 +162,46 @@ def get_notification_config():
 		return config
 
 	return frappe.cache().get_value("notification_config", _get)
+
+def get_filters_for(doctype):
+	'''get open filters for doctype'''
+	config = get_notification_config()
+	return config.get('for_doctype').get(doctype, {})
+
+@frappe.whitelist()
+def get_open_count(doctype, name):
+	'''Get open count for given transactions and filters
+
+	:param doctype: Reference DocType
+	:param name: Reference Name
+	:param transactions: List of transactions (json/dict)
+	:param filters: optional filters (json/list)'''
+
+
+	links = frappe.get_meta(doctype).get_links_setup()
+
+	# compile all items in a list
+	items = []
+	for group in links.transactions:
+		items.extend(group.get('items'))
+
+	out = []
+	for doctype in items:
+		filters = get_filters_for(doctype)
+		fieldname = links.get('non_standard_fieldnames', {}).get(doctype, links.fieldname)
+		data = {'name': doctype}
+		if filters:
+			# get the fieldname for the current document
+			# we only need open documents related to the current document
+			filters[fieldname] = name
+			total = len(frappe.get_all(doctype, fields='name',
+				filters=filters, limit_page_length=6, distinct=True))
+			data['open_count'] = total
+
+		total = len(frappe.get_all(doctype, fields='name',
+			filters={fieldname: name}, limit_page_length=10, distinct=True))
+		data['count'] = total
+		out.append(data)
+
+	return out
+

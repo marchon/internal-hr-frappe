@@ -36,21 +36,118 @@
 	border-top: 1px solid @border-color;
 }
 
+.form-message {
+	padding: 15px;
+}
+
 .form-dashboard {
-	display: none;
-	border-bottom: 1px solid @border-color;
+	border-bottom: 1px solid @light-border-color;
+}
+
+.form-dashboard-section {
+	padding: 15px 30px;
+	margin: 0px;
+	border-bottom: 1px solid @light-border-color;
+}
+
+.form-dashboard-section:last-child {
+	border-bottom: none;
+}
+
+.form-heatmap {
+	padding-top: 30px;
+
+	.heatmap-message {
+		margin-top: 10px;
+	}
+}
+
+.inline-graph {
+	.inline-graph-half {
+		width: 48%;
+		display: inline-block;
+		position: relative;
+		height: 30px;
+
+		.inline-graph-count {
+			font-size: 10px;
+			position: absolute;
+			left: 0;
+			right: 0;
+			top: 3px;
+			padding: 0px 5px;
+			text-align: left;
+		}
+		.inline-graph-bar {
+			position: absolute;
+			left: 0;
+			right: 0;
+			top: 20px;
+		}
+		.inline-graph-bar-inner {
+			display: block;
+			float: left;
+			background-color: @border-color;
+			height: 6px;
+			border-radius: 0px 3px 3px 0px;
+		}
+		.inline-graph-bar-inner.dark {
+			background-color: @text-color;
+		}
+
+	}
+	.inline-graph-half:first-child {
+		border-right: 1px solid @border-color;
+		margin-right: -3px;
+
+		.inline-graph-count {
+			text-align: right;
+		}
+
+		.inline-graph-bar-inner {
+			float: right;
+			border-radius: 3px 0px 0px 3px;
+		}
+	}
+}
+
+.progress-area {
+	padding-top: 15px;
+	padding-bottom: 15px;
+}
+
+.form-links {
+	.document-link {
+		margin-bottom: 5px;
+		height: 22px;
+	}
+
+	.count {
+		display: inline-block;
+		margin-left: 5px;
+		margin-right: 5px;
+	}
 }
 
 .form-section {
 	margin: 0px;
 	padding: 15px;
 
+	h6, .h6 {
+		font-size: 11px;
+		letter-spacing: 0.4px;
+	}
+
 	.form-section-heading {
-		margin: 0px 0px 10px 0px;
+		margin: 10px 0px;
+		text-transform: uppercase;
+		color: @text-muted;
 	}
 
 	.section-head {
 		margin: 0px 0px 15px 15px;
+		text-transform: uppercase;
+		color: @text-muted;
 		cursor: pointer;
 
 		.collapse-indicator {
@@ -324,6 +421,7 @@
 
 .control-label {
 	margin-bottom: 5px;
+	font-weight: normal;
 }
 
 .like-disabled-input {

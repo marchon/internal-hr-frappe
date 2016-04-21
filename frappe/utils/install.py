@@ -15,38 +15,10 @@ def after_install():
 	# reset installed apps for re-install
 	frappe.db.set_global("installed_apps", '["frappe"]')
 
-	# core users / roles
-	install_docs = [
-		{'doctype':'User', 'name':'Administrator', 'first_name':'Administrator',
-			'email':'admin@example.com', 'enabled':1},
-		{'doctype':'User', 'name':'Guest', 'first_name':'Guest',
-			'email':'guest@example.com', 'enabled':1},
-		{'doctype':'UserRole', 'parent': 'Administrator', 'role': 'Administrator',
-			'parenttype':'User', 'parentfield':'user_roles'},
-		{'doctype':'UserRole', 'parent': 'Guest', 'role': 'Guest',
-			'parenttype':'User', 'parentfield':'user_roles'},
-		{'doctype': "Role", "role_name": "Report Manager"},
-		{'doctype': "Workflow State", "workflow_state_name": "Pending",
-			"icon": "question-sign", "style": ""},
-		{'doctype': "Workflow State", "workflow_state_name": "Approved",
-			"icon": "ok-sign", "style": "Success"},
-		{'doctype': "Workflow State", "workflow_state_name": "Rejected",
-			"icon": "remove", "style": "Danger"},
-		{'doctype': "Workflow Action", "workflow_action_name": "Approve"},
-		{'doctype': "Workflow Action", "workflow_action_name": "Reject"},
-		{'doctype': "Workflow Action", "workflow_action_name": "Review"},
-		{'doctype': "Email Account", "email_id": "notifications@example.com", "default_outgoing": 1},
-		{'doctype': "Email Account", "email_id": "replies@example.com", "default_incoming": 1}
-	]
+	install_basic_docs()
 
 	from frappe.core.doctype.file.file import make_home_folder
 	make_home_folder()
-
-	for d in install_docs:
-		try:
-			frappe.get_doc(d).insert()
-		except frappe.NameError:
-			pass
 
 	import_country_and_currency()
 
@@ -65,6 +37,37 @@ def after_install():
 	frappe.db.set_default('desktop:home_page', 'setup-wizard');
 
 	frappe.db.commit()
+
+def install_basic_docs():
+	# core users / roles
+	install_docs = [
+		{'doctype':'User', 'name':'Administrator', 'first_name':'Administrator',
+			'email':'admin@example.com', 'enabled':1,
+			'user_roles': [{'role': 'Administrator'}]
+		},
+		{'doctype':'User', 'name':'Guest', 'first_name':'Guest',
+			'email':'guest@example.com', 'enabled':1,
+			'user_roles': [{'role': 'Guest'}]
+		},
+		{'doctype': "Role", "role_name": "Report Manager"},
+		{'doctype': "Workflow State", "workflow_state_name": "Pending",
+			"icon": "question-sign", "style": ""},
+		{'doctype': "Workflow State", "workflow_state_name": "Approved",
+			"icon": "ok-sign", "style": "Success"},
+		{'doctype': "Workflow State", "workflow_state_name": "Rejected",
+			"icon": "remove", "style": "Danger"},
+		{'doctype': "Workflow Action", "workflow_action_name": "Approve"},
+		{'doctype': "Workflow Action", "workflow_action_name": "Reject"},
+		{'doctype': "Workflow Action", "workflow_action_name": "Review"},
+		{'doctype': "Email Account", "email_id": "notifications@example.com", "default_outgoing": 1},
+		{'doctype': "Email Account", "email_id": "replies@example.com", "default_incoming": 1}
+	]
+
+	for d in install_docs:
+		try:
+			frappe.get_doc(d).insert()
+		except frappe.NameError:
+			pass
 
 def get_admin_password():
 	def ask_admin_password():

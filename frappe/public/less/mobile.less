@@ -39,27 +39,32 @@
 
 	body[data-route^="Form"] {
 		.page-title h1 {
-			margin-top: 14px;
+			margin-top: 12px;
 		}
 
 		.page-title .indicator {
-			display: block;
-			margin-top: -9px;
-			margin-bottom: 3px;
+			display: inline-block;
+			margin-top: 12px;
 		}
 
 		.page-actions {
-			padding-top: 10px !important;
+			padding-top: 20px !important;
 			padding-bottom: 0px !important;
 			padding-left: 0px !important;
 		}
 
 		.page-head .sub-heading {
+			font-weight: normal;
+			font-size: 10px;
 			display: block;
 			position: absolute;
-			bottom: -30px;
-			right: 5px;
+			right: 140px;
 			min-width: 200px;
+		}
+
+		.title-text {
+			margin-top: 10px;
+			margin-left: 10px;
 		}
 	}
 
@@ -325,12 +330,12 @@
 		}
 	}
 
-	// messages
-	body[data-route^="messages"] {
+	// chat
+	body[data-route^="chat"] {
 		.navbar-center-show;
 	}
 
-	#page-messages {
+	#page-chat {
 		.layout-side-section {
 			position: relative;
 			left: 0px;
@@ -353,7 +358,7 @@
 		.module-sidebar-item {
 			margin: 0px;
 
-			.messages-sidebar-link {
+			.chat-sidebar-link {
 				padding: 15px;
 			}
 		}
@@ -387,8 +392,8 @@
 	}
 
 	body[data-route^="Form"] {
-		.page-title .indicator {
-			margin-top: 1px;
+		.page-head .sub-heading {
+			right: 90px;
 		}
 	}
 }

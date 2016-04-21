@@ -2,7 +2,6 @@ frappe.provide("frappe.ui.form");
 frappe.ui.form.Sidebar = Class.extend({
 	init: function(opts) {
 		$.extend(this, opts);
-		this.make();
 	},
 
 	make: function() {
@@ -16,6 +15,8 @@ frappe.ui.form.Sidebar = Class.extend({
 		this.sidebar = this.page_sidebar.add(this.offcanvas_form_sidebar);
 		this.comments = this.sidebar.find(".sidebar-comments");
 		this.user_actions = this.sidebar.find(".user-actions");
+		this.image_section = this.sidebar.find(".sidebar-image-section");
+		this.image_wrapper = this.image_section.find('.sidebar-image-wrapper');
 
 		this.make_assignments();
 		this.make_attachments();
@@ -36,7 +37,7 @@ frappe.ui.form.Sidebar = Class.extend({
 		// scroll to comments
 		this.comments.on("click", function() {
 			$(".offcanvas").removeClass("active-left active-right");
-			frappe.ui.scroll(me.frm.footer.wrapper.find(".form-comments"), true);
+			frappe.utils.scroll_to(me.frm.footer.wrapper.find(".form-comments"), true);
 		});
 
 		this.like_icon.on("click", function() {
@@ -64,6 +65,7 @@ frappe.ui.form.Sidebar = Class.extend({
 				"<br>" + comment_when(this.frm.doc.creation)]));
 
 			this.refresh_like();
+			frappe.ui.form.set_user_image(this.frm);
 		}
 	},
 
@@ -144,4 +146,7 @@ frappe.ui.form.Sidebar = Class.extend({
 
 		this.like_count.text(JSON.parse(this.frm.doc._liked_by || "[]").length);
 	},
+
+	refresh_image: function() {
+	}
 });

@@ -1,6 +1,8 @@
 // Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 // MIT License. See license.txt
 
+frappe.provide('frappe.timeline');
+
 frappe.ui.form.Timeline = Class.extend({
 	init: function(opts) {
 		$.extend(this, opts);
@@ -9,7 +11,7 @@ frappe.ui.form.Timeline = Class.extend({
 	make: function() {
 		var me = this;
 		this.wrapper = $(frappe.render_template("timeline",
-			{ image: frappe.user_info(user).image, fullname: user_fullname })).appendTo(this.parent);
+			{})).appendTo(this.parent);
 
 		this.list = this.wrapper.find(".timeline-items");
 		this.input = this.wrapper.find(".form-control");
@@ -172,7 +174,12 @@ frappe.ui.form.Timeline = Class.extend({
 			c.sender = c.sender.split("<")[1].split(">")[0];
 		}
 
-		c.image = frappe.user_info(c.sender).image || frappe.get_gravatar(c.sender);
+		if(c.sender) {
+			c.user_info = frappe.user_info(c.sender);
+		} else {
+			c.user_info = frappe.user_info(c.owner);
+		}
+
 		c.comment_on = comment_when(c.creation);
 		c.fullname = c.sender_full_name || frappe.user.full_name(c.sender);
 
@@ -551,3 +558,71 @@ frappe.ui.form.Timeline = Class.extend({
 		frappe.ui.setup_like_popover(this.wrapper, ".comment-likes");
 	}
 });
+
+$.extend(frappe.timeline, {
+	new_communication: function(communication) {
+		var docinfo = frappe.model.get_docinfo(communication.reference_doctype, communication.reference_name);
+		if (docinfo && docinfo.communications) {
+			var communications = docinfo.communications;
+			var communication_exists = false;
+			for (var i=0, l=communications.length; i<l; i++) {
+				if (communications[i].name==communication.name) {
+					communication_exists = true;
+					break;
+				}
+			}
+
+			if (!communication_exists) {
+				docinfo.communications = communications.concat([communication]);
+			}
+		}
+
+		if (cur_frm.doctype === communication.reference_doctype && cur_frm.docname === communication.reference_name) {
+			cur_frm.timeline && cur_frm.timeline.refresh();
+		}
+	},
+
+	delete_communication: function(communication) {
+		var docinfo = frappe.model.get_docinfo(communication.reference_doctype, communication.reference_name);
+		var index = frappe.timeline.index_of_communication(communication, docinfo);
+		if (index !== -1) {
+			// remove it from communications list
+			docinfo.communications.splice(index, 1);
+		}
+
+		if (cur_frm.doctype === communication.reference_doctype && cur_frm.docname === communication.reference_name) {
+			cur_frm.timeline && cur_frm.timeline.refresh();
+		}
+	},
+
+	update_communication: function(communication) {
+		var docinfo = frappe.model.get_docinfo(communication.reference_doctype, communication.reference_name);
+		var index = frappe.timeline.index_of_communication(communication, docinfo);
+
+		if (index !== -1) {
+			// update
+			$.extend(docinfo.communications[index], communication);
+		}
+
+		if (cur_frm.doctype === communication.reference_doctype && cur_frm.docname === communication.reference_name) {
+			cur_frm.timeline && cur_frm.timeline.refresh();
+		}
+	},
+
+	index_of_communication: function(communication, docinfo) {
+		var index = -1;
+
+		if (docinfo && docinfo.communications) {
+			var communications = docinfo.communications;
+
+			for (var i=0, l=communications.length; i<l; i++) {
+				if (communications[i].name==communication.name) {
+					index = i;
+					break;
+				}
+			}
+		}
+
+		return index;
+	},
+})

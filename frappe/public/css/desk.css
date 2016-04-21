@@ -448,6 +448,7 @@ textarea.form-control {
   padding: 0 8px;
   color: #fff;
   border-radius: 10px;
+  cursor: pointer;
 }
 /* on small screens, show only icons on top */
 @media (max-width: 767px) {
@@ -480,7 +481,9 @@ textarea.form-control {
   margin-top: 7px;
 }
 .message-box .timeline-head {
-  padding-top: 30px;
+  padding: 30px;
+  border: 0px;
+  border-bottom: 1px solid #d1d8dd;
 }
 .page-only-label {
   margin-top: 5px;

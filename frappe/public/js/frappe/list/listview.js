@@ -49,7 +49,7 @@ frappe.views.ListView = Class.extend({
 		}
 
 		$.each(['name', 'owner', 'docstatus', '_user_tags', '_comments', 'modified',
-			'modified_by', '_assign', '_liked_by'],
+			'modified_by', '_assign', '_liked_by', '_seen'],
 		function(i, fieldname) { add_field(fieldname); })
 
 		// add title field
@@ -259,6 +259,15 @@ frappe.views.ListView = Class.extend({
 
 	get_avatar_and_id: function(data, without_workflow) {
 		data._without_workflow = without_workflow;
+		data.css_seen = '';
+
+		if(data._seen) {
+			var seen = JSON.parse(data._seen);
+			if(seen && seen.indexOf(frappe.session.user) !== -1) {
+				data.css_seen = 'seen'
+			}
+		}
+
 		return frappe.render_template("list_item_subject", data);
 	},
 

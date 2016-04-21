@@ -50,7 +50,7 @@ frappe.ui.notifications.update_notifications = function() {
 
 	// switch colour on the navbar
 	$(".navbar-new-comments")
-		.html(frappe.ui.notifications.total > 99 ? '99+' : frappe.ui.notifications.total)
+		.html(frappe.ui.notifications.total > 20 ? '20+' : frappe.ui.notifications.total)
 		.toggleClass("navbar-new-comments-true", frappe.ui.notifications.total ? true : false);
 
 }
@@ -69,7 +69,7 @@ frappe.ui.notifications.add_notification = function(doctype, notifications_map) 
 				%(count)s</span> \
 			%(label)s </a></li>', {
 				label: __(label),
-				count: count > 99 ? '99+' : count,
+				count: count > 20 ? '20+' : count,
 				data_doctype: doctype
 			});
 
@@ -83,7 +83,7 @@ frappe.ui.notifications.add_notification = function(doctype, notifications_map) 
 // default notification config
 frappe.ui.notifications.config = {
 	"ToDo": { label: __("To Do") },
-	"Messages": { label: __("Messages"), route: "messages"},
+	"Chat": { label: __("Chat"), route: "chat"},
 	"Event": { label: __("Calendar"), route: "Calendar/Event" },
 	"Likes": {
 		label: __("Likes"),
@@ -103,10 +103,10 @@ frappe.ui.notifications.config = {
 
 frappe.views.show_open_count_list = function(element) {
 	var doctype = $(element).attr("data-doctype");
-	var condition = frappe.boot.notification_info.conditions[doctype];
+	var filters = frappe.ui.notifications.get_filters(doctype);
 
-	if(condition && $.isPlainObject(condition)) {
-		frappe.route_options = condition;
+	if(filters) {
+		frappe.route_options = filters;
 	}
 
 	var route = frappe.get_route();
@@ -114,5 +114,13 @@ frappe.views.show_open_count_list = function(element) {
 		frappe.pages["List/" + doctype].doclistview.refresh();
 	} else {
 		frappe.set_route("List", doctype);
+	}
+}
+
+frappe.ui.notifications.get_filters = function(doctype) {
+	var conditions = frappe.boot.notification_info.conditions[doctype];
+
+	if(conditions && $.isPlainObject(conditions)) {
+		return conditions;
 	}
 }

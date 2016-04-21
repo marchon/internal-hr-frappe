@@ -21,10 +21,12 @@ class WebForm(WebsiteGenerator):
 		if self.is_standard and not frappe.conf.developer_mode:
 			self.use_meta_fields()
 
+
 	def validate(self):
 		if (not (frappe.flags.in_install or frappe.flags.in_patch or frappe.flags.in_test or frappe.flags.in_fixtures)
 			and self.is_standard and not frappe.conf.developer_mode):
 			frappe.throw(_("You need to be in developer mode to edit a Standard Web Form"))
+
 
 	def use_meta_fields(self):
 		meta = frappe.get_meta(self.doc_type)
@@ -60,6 +62,7 @@ class WebForm(WebsiteGenerator):
 			# TODO translate options of Select fields like Country
 
 	def get_context(self, context):
+		context.show_sidebar=True
 		from frappe.templates.pages.list import get_context as get_list_context
 
 		frappe.local.form_dict.is_web_form = 1
@@ -102,6 +105,7 @@ class WebForm(WebsiteGenerator):
 		if frappe.form_dict.name:
 			context.doc = frappe.get_doc(self.doc_type, frappe.form_dict.name)
 			context.title = context.doc.get(context.doc.meta.get_title_field())
+			context.doc.add_seen()
 
 			context.reference_doctype = context.doc.doctype
 			context.reference_name = context.doc.name
@@ -115,6 +119,23 @@ class WebForm(WebsiteGenerator):
 		if context.success_message:
 			context.success_message = context.success_message.replace("\n",
 				"<br>").replace("'", "\'")
+
+		self.set_back_to_link(context)
+
+
+	def set_back_to_link(self, context):
+		'''Sets breadcrumbs, success and fail URL if
+		`back-to` argument is set'''
+		if frappe.form_dict.get('back-to'):
+			link = frappe.form_dict.get('back-to')
+			title = frappe.form_dict.get('back-to-title') or _('Back')
+
+			# breadcrumbs
+			context.parents = [{'name': link, 'title': title }]
+
+			# success
+			context.success_url = link
+			context.cancel_url = link
 
 		return context
 
@@ -134,12 +155,13 @@ class WebForm(WebsiteGenerator):
 
 	def get_parents(self, context):
 		parents = None
-		if self.breadcrumbs:
+
+		if context.is_list:
+			parents = [{"title": _("My Account"), "name": "me"}]
+		elif self.breadcrumbs:
 			parents = json.loads(self.breadcrumbs)
 		elif context.parents:
 			parents = context.parents
-		elif context.is_list:
-			parents = [{"title": _("My Account"), "name": "me"}]
 
 		return parents
 
@@ -230,8 +252,18 @@ def has_web_form_permission(doctype, name, ptype='read'):
 	elif frappe.has_website_permission(doctype, ptype=ptype, doc=name):
 		return True
 
+	elif check_webform_perm(doctype, name):
+		return True
+
 	else:
 		return False
+				
+
+def check_webform_perm(doctype, name):
+	doc = frappe.get_doc(doctype, name)
+	if hasattr(doc, "has_webform_permission"):
+		if doc.has_webform_permission():
+			return True
 
 def get_web_form_list(doctype, txt, filters, limit_start, limit_page_length=20):
 	from frappe.templates.pages.list import get_list

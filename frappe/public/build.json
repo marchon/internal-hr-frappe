@@ -2,13 +2,16 @@
 	"css/frappe-web.css": [
 		"public/css/font-awesome.css",
 		"public/css/octicons/octicons.css",
-		"public/css/website.css"
+		"public/css/website.css",
+		"public/css/avatar.css"
 	],
 	"js/frappe-web.min.js": [
 		"public/js/lib/bootstrap.min.js",
+		"public/js/lib/md5.min.js",
 		"public/js/frappe/provide.js",
 		"public/js/frappe/format.js",
 		"public/js/frappe/misc/number_format.js",
+		"public/js/frappe/misc/common.js",
 		"public/js/frappe/translate.js",
 		"public/js/frappe/misc/pretty_date.js",
 		"public/js/lib/moment/moment.min.js",
@@ -39,7 +42,7 @@
 		"public/css/bootstrap.css",
 		"public/css/font-awesome.css",
 		"public/css/octicons/octicons.css",
-		"public/css/font/open-sans/open-sans.css",
+		"public/css/cal-heatmap.css",
 		"public/css/desk.css",
 		"public/css/indicator.css",
 		"public/css/avatar.css",
@@ -60,6 +63,8 @@
 		"public/js/lib/moment/moment-with-locales.min.js",
 		"public/js/lib/moment/moment-timezone-with-data.min.js",
 		"public/js/lib/socket.io.min.js",
+		"public/js/lib/d3.min.js",
+		"public/js/lib/cal-heatmap.js",
 
 		"public/js/frappe/provide.js",
 		"public/js/frappe/class.js",
@@ -81,7 +86,6 @@
 		"public/js/legacy/datatype.js",
 		"public/js/legacy/dom.js",
 		"public/js/legacy/handler.js",
-		"public/js/legacy/loaders.js",
 
 		"public/js/frappe/ui/page.html",
 		"public/js/frappe/ui/page.js",
@@ -103,6 +107,7 @@
 
 		"public/js/lib/md5.min.js",
 		"public/js/frappe/misc/user.js",
+		"public/js/frappe/misc/common.js",
 		"public/js/frappe/misc/pretty_date.js",
 		"public/js/frappe/misc/utils.js",
 		"public/js/frappe/misc/tools.js",
@@ -141,6 +146,14 @@
 		"public/css/form_grid.css"
 	],
 	"js/form.min.js": [
+		"public/js/frappe/form/templates/grid_form.html",
+		"public/js/frappe/form/templates/grid_body.html",
+		"public/js/frappe/form/templates/print_layout.html",
+		"public/js/frappe/form/templates/users_in_sidebar.html",
+		"public/js/frappe/form/templates/set_sharing.html",
+		"public/js/frappe/form/templates/form_sidebar.html",
+		"public/js/frappe/form/templates/form_dashboard.html",
+		"public/js/frappe/form/templates/form_links.html",
 		"public/js/frappe/views/formview.js",
 		"public/js/legacy/form.js",
 		"public/js/legacy/clientscriptAPI.js",
@@ -148,19 +161,14 @@
 		"public/js/frappe/form/dashboard.js",
 		"public/js/frappe/form/save.js",
 		"public/js/frappe/form/script_manager.js",
-		"public/js/frappe/form/grid_form.html",
-		"public/js/frappe/form/grid_body.html",
 		"public/js/frappe/form/grid.js",
 		"public/js/frappe/form/linked_with.js",
 		"public/js/frappe/form/workflow.js",
-		"public/js/frappe/form/print_layout.html",
 		"public/js/frappe/form/print.js",
 		"public/js/frappe/form/sidebar.js",
-		"public/js/frappe/form/users_in_sidebar.html",
+		"public/js/frappe/form/user_image.js",
 		"public/js/frappe/form/share.js",
-		"public/js/frappe/form/set_sharing.html",
 		"public/js/frappe/form/form_viewers.js",
-		"public/js/frappe/form/form_sidebar.html",
 
 		"public/js/frappe/form/footer/form_footer.html",
 		"public/js/frappe/form/footer/timeline.html",
@@ -168,7 +176,8 @@
 		"public/js/frappe/form/footer/footer.js",
 		"public/js/frappe/form/footer/attachments.js",
 		"public/js/frappe/form/footer/timeline.js",
-		"public/js/frappe/form/footer/assign_to.js"
+		"public/js/frappe/form/footer/assign_to.js",
+		"public/js/frappe/form/quick_entry.js"
 	],
 	"css/list.min.css": [
 		"public/css/list.css",

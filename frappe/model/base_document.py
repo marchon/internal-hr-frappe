@@ -8,6 +8,7 @@ from frappe.utils import (cint, flt, now, cstr, strip_html, getdate, get_datetim
 	sanitize_html, sanitize_email)
 from frappe.model import default_fields
 from frappe.model.naming import set_new_name
+from frappe.model.utils.link_count import notify_link_count
 from frappe.modules import load_doctype_module
 from frappe.model import display_fieldtypes
 from frappe.model.db_schema import type_map, varchar_len
@@ -355,6 +356,13 @@ class BaseDocument(object):
 		frappe.db.set_value(self.doctype, self.name, fieldname, value,
 			self.modified, self.modified_by, update_modified=update_modified)
 
+		self.run_method('on_change')
+
+	def update_modified(self):
+		'''Update modified timestamp'''
+		self.set("modified", now())
+		frappe.db.set_value(self.doctype, self.name, 'modified', self.modified, update_modified=False)
+
 	def _fix_numeric_types(self):
 		for df in self.meta.get("fields"):
 			if df.fieldtype == "Check":
@@ -409,6 +417,7 @@ class BaseDocument(object):
 		for df in (self.meta.get_link_fields()
 				 + self.meta.get("fields", {"fieldtype":"Dynamic Link"})):
 			docname = self.get(df.fieldname)
+
 			if docname:
 				if df.fieldtype=="Link":
 					doctype = df.options
@@ -425,6 +434,8 @@ class BaseDocument(object):
 					value = doctype
 
 				setattr(self, df.fieldname, value)
+
+				notify_link_count(doctype, docname)
 
 				if not value:
 					invalid_links.append((df.fieldname, docname, get_msg(df, docname)))
@@ -636,6 +647,9 @@ class BaseDocument(object):
 				print_hide = df.print_hide
 			elif meta_df:
 				print_hide = meta_df.print_hide
+
+		if fieldname=='in_words':
+			print fieldname, print_hide, meta_df.print_hide
 
 		return print_hide
 

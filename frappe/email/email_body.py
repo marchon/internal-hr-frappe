@@ -5,7 +5,8 @@ from __future__ import unicode_literals
 import frappe
 from frappe.utils.pdf import get_pdf
 from frappe.email.smtp import get_outgoing_email_account
-from frappe.utils import get_url, scrub_urls, strip, expand_relative_urls, cint, split_emails, to_markdown, markdown
+from frappe.utils import (get_url, scrub_urls, strip, expand_relative_urls, cint,
+	split_emails, to_markdown, markdown, encode)
 import email.utils
 
 def get_email(recipients, sender='', msg='', subject='[No Subject]',
@@ -13,7 +14,7 @@ def get_email(recipients, sender='', msg='', subject='[No Subject]',
 	content=None, reply_to=None, cc=(), email_account=None):
 	"""send an html email as multipart with attachments and all"""
 	content = content or msg
-	emailobj = EMail(sender, recipients, subject, reply_to=reply_to, cc=cc, email_account=None)
+	emailobj = EMail(sender, recipients, subject, reply_to=reply_to, cc=cc, email_account=email_account)
 
 	if not content.strip().startswith("<"):
 		content = markdown(content)
@@ -57,7 +58,7 @@ class EMail:
 		self.cc = cc or []
 		self.html_set = False
 
-		self.email_account = email_account
+		self.email_account = email_account or get_outgoing_email_account()
 
 	def set_html(self, message, text_content = None, footer=None, print_html=None, formatted=None):
 		"""Attach message in the html portion of multipart/alternative"""
@@ -156,24 +157,30 @@ class EMail:
 	def add_pdf_attachment(self, name, html, options=None):
 		self.add_attachment(name, get_pdf(html, options), 'application/octet-stream')
 
-	def get_default_sender(self):
-		return  get_outgoing_email_account().default_sender
-
 	def validate(self):
 		"""validate the email ids"""
 		from frappe.utils import validate_email_add
 
 		if not self.sender:
-			self.sender = self.get_default_sender()
+			self.sender = self.email_account.default_sender
 
 		validate_email_add(strip(self.sender), True)
 		self.reply_to = validate_email_add(strip(self.reply_to) or self.sender, True)
+
+		self.replace_sender()
 
 		self.recipients = [strip(r) for r in self.recipients]
 		self.cc = [strip(r) for r in self.cc]
 
 		for e in self.recipients + (self.cc or []):
 			validate_email_add(e, True)
+
+	def replace_sender(self):
+		if cint(self.email_account.always_use_account_email_id_as_sender):
+			self.set_header('X-Original-From', self.sender)
+
+			sender_name, sender_email = email.utils.parseaddr(self.sender)
+			self.sender = email.utils.formataddr((sender_name or self.email_account.name, self.email_account.email_id))
 
 	def set_message_id(self, message_id):
 		self.msg_root["Message-Id"] = "<{0}@{1}>".format(message_id, frappe.local.site)
@@ -185,24 +192,31 @@ class EMail:
 	def make(self):
 		"""build into msg_root"""
 		headers = {
-			"Subject":        strip(self.subject).encode("utf-8"),
-			"From":           self.sender.encode("utf-8"),
-			"To":             ', '.join(self.recipients).encode("utf-8"),
+			"Subject":        strip(self.subject),
+			"From":           self.sender,
+			"To":             ', '.join(self.recipients),
 			"Date":           email.utils.formatdate(),
-			"Reply-To":       self.reply_to.encode("utf-8") if self.reply_to else None,
-			"CC":             ', '.join(self.cc).encode("utf-8") if self.cc else None,
-			b'X-Frappe-Site': get_url().encode('utf-8'),
+			"Reply-To":       self.reply_to if self.reply_to else None,
+			"CC":             ', '.join(self.cc) if self.cc else None,
+			'X-Frappe-Site':  get_url(),
 		}
 
 		# reset headers as values may be changed.
 		for key, val in headers.iteritems():
-			if self.msg_root.has_key(key):
-				del self.msg_root[key]
-			self.msg_root[key] = val
+			self.set_header(key, val)
 
 		# call hook to enable apps to modify msg_root before sending
 		for hook in frappe.get_hooks("make_email_body_message"):
 			frappe.get_attr(hook)(self)
+
+	def set_header(self, key, value):
+		key = encode(key)
+		value = encode(value)
+
+		if self.msg_root.has_key(key):
+			del self.msg_root[key]
+
+		self.msg_root[key] = value
 
 	def as_string(self):
 		"""validate, build message and convert to string"""

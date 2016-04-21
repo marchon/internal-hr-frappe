@@ -152,10 +152,10 @@ frappe.Application = Class.extend({
 	update_notification_count_in_modules: function() {
 		$.each(frappe.boot.notification_info.open_count_doctype, function(doctype, count) {
 			if(count) {
-				$('.open-notification[data-doctype="'+ doctype +'"]')
-					.removeClass("hide").html(count > 99 ? "99+" : count);
+				$('.open-notification.global[data-doctype="'+ doctype +'"]')
+					.removeClass("hide").html(count > 20 ? "20+" : count);
 			} else {
-				$('.open-notification[data-doctype="'+ doctype +'"]')
+				$('.open-notification.global[data-doctype="'+ doctype +'"]')
 					.addClass("hide");
 			}
 		});
@@ -259,13 +259,33 @@ frappe.Application = Class.extend({
 				}
 				return false;
 			})
+			.keydown("meta+b ctrl+b", function(e) {
+				e.preventDefault();
+				var route = frappe.get_route();
+				if(route[0]==='Form' || route[0]==='List') {
+					new_doc(route[1]);
+				}
+				return false;
+			})
 			.keydown("esc", function(e) {
+				// close open grid row
 				var open_row = $(".grid-row-open");
 				if(open_row.length) {
 					var grid_row = open_row.data("grid_row");
 					grid_row.toggle_view(false);
+					return false;
 				}
-				return false;
+
+				// close open dialog
+				if(cur_dialog && !cur_dialog.no_cancel_flag) {
+					cur_dialog.cancel();
+					return false;
+				}
+			})
+			.keydown("return", function() {
+				if(cur_dialog && cur_dialog.confirm_dialog) {
+					cur_dialog.get_primary_btn().trigger('click');
+				}
 			})
 			.keydown("ctrl+down meta+down", function(e) {
 				var open_row = $(".grid-row-open");
@@ -338,7 +358,7 @@ frappe.get_module = function(m, default_module) {
 	if (!module.link) module.link = "";
 
 	if (!module._id) {
-		module._id = module.link.toLowerCase().replace("/", "-");
+		module._id = module.link.toLowerCase().replace("/", "-").replace(' ', '-');
 	}
 
 
@@ -350,12 +370,16 @@ frappe.get_module = function(m, default_module) {
 		module._label = __(module.label);
 	}
 
+	if(!module._doctype) {
+		module._doctype = '';
+	}
+
 	module._setup = true;
 
 	return module;
 };
 
-frappe.get_desktop_icons = function(show_hidden) {
+frappe.get_desktop_icons = function(show_hidden, show_global) {
 	// filter valid icons
 	var out = [];
 
@@ -376,14 +400,18 @@ frappe.get_desktop_icons = function(show_hidden) {
 			if(m.module_name==='Learn') {
 				// no permissions necessary for learn
 				out = true;
+			} else if(m.module_name==='Setup' && frappe.user.has_role('System Manager')) {
+				out = true;
 			} else {
 				out = frappe.boot.user.allow_modules.indexOf(m.module_name) !== -1
 			}
 		}
-		if(out && !show_hidden) {
-			if(m.hidden) out = false;
+		if(m.hidden&& !show_hidden) {
+			out = false;
 		}
-		
+		if(m.blocked && !show_global) {
+			out = false;
+		}
 		return out;
 	}
 
@@ -416,6 +444,11 @@ frappe.add_to_desktop = function(label, doctype) {
 			label: label,
 			type: 'link',
 			_doctype: doctype
+		},
+		callback: function(r) {
+			if(r.message) {
+				show_alert(__("Added"));
+			}
 		}
 	});
 }

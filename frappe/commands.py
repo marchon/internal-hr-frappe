@@ -97,6 +97,8 @@ def _new_site(db_name, site, mariadb_root_username=None, mariadb_root_password=N
 			_install_app(app, verbose=verbose, set_as_patched=not source_sql)
 
 	frappe.utils.scheduler.toggle_scheduler(enable_scheduler)
+	frappe.db.commit()
+
 	scheduler_status = "disabled" if frappe.utils.scheduler.is_scheduler_disabled() else "enabled"
 	print "*** Scheduler is", scheduler_status, "***"
 	frappe.destroy()
@@ -120,14 +122,27 @@ def _is_scheduler_enabled():
 @click.option('--db-name', help='Database name for site in case it is a new one')
 @click.option('--admin-password', help='Administrator password for new site')
 @click.option('--install-app', multiple=True, help='Install app after installation')
+@click.option('--with-public-files', help='Restores the public files of the site, given path to its tar file')
+@click.option('--with-private-files', help='Restores the private files of the site, given path to its tar file')
 @pass_context
-def restore(context, sql_file_path, mariadb_root_username=None, mariadb_root_password=None, db_name=None, verbose=None, install_app=None, admin_password=None, force=None):
+def restore(context, sql_file_path, mariadb_root_username=None, mariadb_root_password=None, db_name=None, verbose=None, install_app=None, admin_password=None, force=None, with_public_files=None, with_private_files=None):
 	"Restore site database from an sql file"
+	from frappe.installer import extract_sql_gzip, extract_tar_files
+	# Extract the gzip file if user has passed *.sql.gz file instead of *.sql file
+	if sql_file_path.endswith('sql.gz'):
+		sql_file_path = extract_sql_gzip(os.path.abspath(sql_file_path))
 
 	site = get_single_site(context)
 	frappe.init(site=site)
 	db_name = db_name or frappe.conf.db_name or hashlib.sha1(site).hexdigest()[:10]
 	_new_site(db_name, site, mariadb_root_username=mariadb_root_username, mariadb_root_password=mariadb_root_password, admin_password=admin_password, verbose=context.verbose, install_apps=install_app, source_sql=sql_file_path, force=context.force)
+
+	# Extract public and/or private files to the restored site, if user has given the path
+	if with_public_files:
+		extract_tar_files(site, with_public_files, 'public')
+
+	if with_private_files:
+		extract_tar_files(site, with_private_files, 'private')
 
 @click.command('reinstall')
 @pass_context
@@ -470,12 +485,6 @@ def execute(context, method, args=None, kwargs=None):
 		if ret:
 			print json.dumps(ret)
 
-@click.command('celery')
-@click.argument('args')
-def celery(args):
-	"Run a celery command"
-	python = sys.executable
-	os.execv(python, [python, "-m", "frappe.celery_app"] + args.split())
 
 @click.command('trigger-scheduler-event')
 @click.argument('event')
@@ -835,29 +844,38 @@ def request(context, args):
 		finally:
 			frappe.destroy()
 
-@click.command('doctor')
-def doctor():
+@click.command('doctor') #Passing context always gets a site and if there is no use site it breaks
+@click.option('--site', help='site name')
+def doctor(site=None):
 	"Get diagnostic info about background workers"
 	from frappe.utils.doctor import doctor as _doctor
-	return _doctor()
+	return _doctor(site=site)
 
-@click.command('celery-doctor')
+@click.command('show-pending-jobs')
 @click.option('--site', help='site name')
-def celery_doctor(site=None):
+@pass_context
+def show_pending_jobs(context, site=None):
 	"Get diagnostic info about background workers"
-	from frappe.utils.doctor import celery_doctor as _celery_doctor
-	frappe.init('')
-	return _celery_doctor(site=site)
+	if not site:
+		try:
+			site = context.sites[0]
+		except (IndexError, TypeError):
+			print 'Please specify --site sitename'
+			return 1
 
-@click.command('purge-pending-tasks')
+	from frappe.utils.doctor import pending_jobs as _pending_jobs
+	return _pending_jobs(site=site)
+
+@click.command('purge-jobs')
 @click.option('--site', help='site name')
+@click.option('--queue', default=None, help='one of "low", "default", "high')
 @click.option('--event', default=None, help='one of "all", "weekly", "monthly", "hourly", "daily", "weekly_long", "daily_long"')
-def purge_all_tasks(site=None, event=None):
+def purge_jobs(site=None, queue=None, event=None):
 	"Purge any pending periodic tasks, if event option is not given, it will purge everything for the site"
-	from frappe.utils.doctor import purge_pending_tasks
+	from frappe.utils.doctor import purge_pending_jobs
 	frappe.init(site or '')
-	count = purge_pending_tasks(event=None, site=None)
-	print "Purged {} tasks".format(count)
+	count = purge_pending_jobs(event=event, site=site, queue=queue)
+	print "Purged {} jobs".format(count)
 
 @click.command('dump-queue-status')
 def dump_queue_status():
@@ -968,7 +986,8 @@ def set_config(context, key, value):
 @click.argument('site')
 @click.option('--root-login', default='root')
 @click.option('--root-password')
-def drop_site(site, root_login='root', root_password=None):
+@click.option('--archived-sites-path')
+def drop_site(site, root_login='root', root_password=None, archived_sites_path=None):
 	from frappe.installer import get_current_host, make_connection
 	from frappe.model.db_schema import DbManager
 	from frappe.utils.backups import scheduled_backup
@@ -983,10 +1002,13 @@ def drop_site(site, root_login='root', root_password=None):
 	dbman.delete_user(db_name, get_current_host())
 	dbman.drop_database(db_name)
 
-	archived_sites_dir = os.path.join(frappe.get_app_path('frappe'), '..', '..', '..', 'archived_sites')
-	if not os.path.exists(archived_sites_dir):
-		os.mkdir(archived_sites_dir)
-	move(archived_sites_dir, site)
+	if not archived_sites_path:
+		archived_sites_path = os.path.join(frappe.get_app_path('frappe'), '..', '..', '..', 'archived_sites')
+
+	if not os.path.exists(archived_sites_path):
+		os.mkdir(archived_sites_path)
+
+	move(archived_sites_path, site)
 
 @click.command('version')
 def get_version():
@@ -996,15 +1018,17 @@ def get_version():
 		if hasattr(module, "__version__"):
 			print "{0} {1}".format(m, module.__version__)
 
-# commands = [
-# 	new_site,
-# 	restore,
-# 	install_app,
-# 	run_patch,
-# 	migrate,
-# 	add_system_manager,
-# 	celery
-# ]
+@click.command('schedule')
+def start_scheduler():
+	from frappe.utils.scheduler import start_scheduler
+	start_scheduler()
+
+@click.command('worker')
+@click.option('--queue', type=str)
+def start_worker(queue):
+	from frappe.utils.background_jobs import start_worker
+	start_worker(queue)
+
 commands = [
 	new_site,
 	restore,
@@ -1028,7 +1052,6 @@ commands = [
 	build_docs,
 	reset_perms,
 	execute,
-	celery,
 	trigger_scheduler_event,
 	enable_scheduler,
 	disable_scheduler,
@@ -1049,8 +1072,8 @@ commands = [
 	serve,
 	request,
 	doctor,
-	celery_doctor,
-	purge_all_tasks,
+	show_pending_jobs,
+	purge_jobs,
 	dump_queue_status,
 	console,
 	make_app,
@@ -1061,5 +1084,7 @@ commands = [
 	drop_site,
 	set_config,
 	get_version,
-	new_language
+	new_language,
+	start_worker,
+	start_scheduler,
 ]

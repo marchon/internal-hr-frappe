@@ -5,15 +5,13 @@
 
 from __future__ import unicode_literals
 from werkzeug.test import Client
-import os, re, urllib, sys
-import json
-import frappe
-import requests
-
-import bleach
-import bleach_whitelist
+import os, re, urllib, sys, json, md5, requests, traceback
+import bleach, bleach_whitelist
 from html5lib.sanitizer import HTMLSanitizer
 from markdown2 import markdown as _markdown
+
+import frappe
+from frappe.utils.identicon import Identicon
 
 # utility functions like cint, int, flt, etc.
 from frappe.utils.data import *
@@ -73,6 +71,8 @@ def extract_email_id(email):
 
 def validate_email_add(email_str, throw=False):
 	"""Validates the email string"""
+	email_str = (email_str or "").strip()
+
 	if not email_str:
 		return False
 
@@ -118,21 +118,37 @@ def random_string(length):
 	from random import choice
 	return ''.join([choice(string.letters + string.digits) for i in range(length)])
 
+def has_gravatar(email):
+	'''Returns gravatar url if user has set an avatar at gravatar.com'''
+	if (frappe.flags.in_upload
+		or frappe.flags.in_install
+		or frappe.flags.in_test):
+		# no gravatar if via upload
+		# since querying gravatar for every item will be slow
+		return
+
+	gravatar_url = "https://secure.gravatar.com/avatar/{hash}?d=404&s=200".format(hash=md5.md5(email).hexdigest())
+	try:
+		res = requests.get(gravatar_url)
+		if res.status_code==404:
+			return ''
+		else:
+			return gravatar_url
+	except requests.exceptions.ConnectionError:
+		return ''
+
 def get_gravatar(email):
-	import md5
-	return "https://secure.gravatar.com/avatar/{hash}?d=retro".format(hash=md5.md5(email).hexdigest())
+	gravatar_url = has_gravatar(email)
+	if not gravatar_url:
+		return Identicon(email).base64()
 
 def get_traceback():
 	"""
 		 Returns the traceback of the Exception
 	"""
-	import traceback
-	exc_type, value, tb = sys.exc_info()
-
-	trace_list = traceback.format_tb(tb, None) + \
-		traceback.format_exception_only(exc_type, value)
-	body = "Traceback (innermost last):\n" + "%-20s %s" % \
-		(unicode((b"").join(trace_list[:-1]), 'utf-8'), unicode(trace_list[-1], 'utf-8'))
+	exc_type, exc_value, exc_tb = sys.exc_info()
+	trace_list = traceback.format_exception(exc_type, exc_value, exc_tb)
+	body = "".join(cstr(t) for t in trace_list)
 
 	if frappe.logger:
 		frappe.logger.error('Db:'+(frappe.db and frappe.db.cur_db_name or '') \
@@ -358,11 +374,19 @@ def is_markdown(text):
 def get_sites(sites_path=None):
 	import os
 	if not sites_path:
-		sites_path = '.'
-	return [site for site in os.listdir(sites_path)
-			if os.path.isdir(os.path.join(sites_path, site))
-				and not site in ('assets',)]
+		sites_path = getattr(frappe.local, 'sites_path', None) or '.'
 
+	sites = []
+	for site in os.listdir(sites_path):
+		path = os.path.join(sites_path, site)
+
+		if (os.path.isdir(path)
+			and not os.path.islink(path)
+			and os.path.exists(os.path.join(path, 'site_config.json'))):
+			# is a dir and has site_config.json
+			sites.append(site)
+
+	return sites
 
 def get_request_session(max_retries=3):
 	from requests.packages.urllib3.util import Retry

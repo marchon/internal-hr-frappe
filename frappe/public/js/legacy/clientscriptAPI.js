@@ -272,8 +272,17 @@ _f.Frm.prototype.set_value = function(field, value, if_missing) {
 	}
 }
 
-_f.Frm.prototype.call = function(opts) {
+_f.Frm.prototype.call = function(opts, args, callback) {
 	var me = this;
+	if(typeof opts==='string') {
+		// called as frm.call('do_this', {with_arg: 'arg'});
+		opts = {
+			method: opts,
+			doc: this.doc,
+			args: args,
+			callback: callback
+		};
+	}
 	if(!opts.doc) {
 		if(opts.method.indexOf(".")===-1)
 			opts.method = frappe.model.get_server_module_name(me.doctype) + "." + opts.method;
@@ -315,12 +324,6 @@ _f.Frm.prototype.get_field = function(field) {
 	return cur_frm.fields_dict[field];
 };
 
-_f.Frm.prototype.new_doc = function(doctype, field, opts) {
-	frappe._from_link = field;
-	frappe._from_link_scrollY = $(document).scrollTop();
-	new_doc(doctype, opts);
-}
-
 
 _f.Frm.prototype.set_read_only = function() {
 	var perm = [];
@@ -348,4 +351,12 @@ _f.Frm.prototype.open_grid_row = function() {
 
 _f.Frm.prototype.is_new = function() {
 	return this.doc.__islocal;
+}
+
+_f.Frm.prototype.get_title = function() {
+	if(this.meta.title_field) {
+		return this.doc[this.meta.title_field];
+	} else {
+		return this.doc.name;
+	}
 }

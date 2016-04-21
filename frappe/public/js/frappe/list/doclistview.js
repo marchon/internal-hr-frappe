@@ -275,10 +275,13 @@ frappe.views.DocListView = frappe.ui.Listing.extend({
 	},
 
 	set_route_options: function() {
+		// set filters from frappe.route_options
+		// before switching pages, frappe.route_options can have pre-set filters
+		// for the list view
 		var me = this;
 		me.filter_list.clear_filters();
 		$.each(frappe.route_options, function(key, value) {
-			var doctype = me.doctype;
+			var doctype = null;
 
 			// if `Child DocType.fieldname`
 			if (key.indexOf(".")!==-1) {
@@ -286,10 +289,39 @@ frappe.views.DocListView = frappe.ui.Listing.extend({
 				key = key.split(".")[1];
 			}
 
-			if($.isArray(value)) {
-				me.filter_list.add_filter(doctype, key, value[0], value[1]);
-			} else {
-				me.filter_list.add_filter(doctype, key, "=", value);
+			// find the table in which the key exists
+			// for example the filter could be {"item_code": "X"}
+			// where item_code is in the child table.
+
+			// we can search all tables for mapping the doctype
+			if(!doctype) {
+				if(in_list(frappe.model.std_fields_list, key)) {
+					// standard
+					doctype = me.doctype;
+				} else if(frappe.meta.has_field(me.doctype, key)) {
+					// found in parent
+					doctype = me.doctype;
+				} else {
+					frappe.meta.get_table_fields(me.doctype).every(function(d) {
+						if(frappe.meta.has_field(d.options, key)) {
+							doctype = d.options;
+							return false;
+						}
+					});
+
+					if(!doctype) {
+						frappe.msgprint(__('Warning: Unable to find {0} in any table related to {1}', [
+							key, __(me.doctype)]));
+					}
+				}
+			}
+
+			if(doctype) {
+				if($.isArray(value)) {
+					me.filter_list.add_filter(doctype, key, value[0], value[1]);
+				} else {
+					me.filter_list.add_filter(doctype, key, "=", value);
+				}
 			}
 		});
 		frappe.route_options = null;
@@ -479,15 +511,28 @@ frappe.views.DocListView = frappe.ui.Listing.extend({
 	},
 	make_bulk_printing: function() {
 		var me = this;
+		var print_settings = frappe.model.get_doc(":Print Settings", "Print Settings")
+		var allow_print_for_draft = cint(print_settings.allow_print_for_draft)
+		var is_submittable = frappe.model.is_submittable(me.doctype)
+		var allow_print_for_cancelled = cint(print_settings.allow_print_for_cancelled)
+
 		//bulk priting
 		me.page.add_menu_item(__("Print"), function(){
-
+			var no_print = false
 			docname = [];
-
 			$.each(me.get_checked_items(), function(i, doc){
-				docname.push(doc.name);
-			})
+				if(!is_submittable || doc.docstatus == 1  ||
+					(allow_print_for_cancelled && doc.docstatus == 2)||
+	 				(allow_print_for_draft && doc.docstatus == 0)||
+					in_list(user_roles, "Administrator"))
 
+						docname.push(doc.name);
+				else
+					no_print = true
+			})
+			if(no_print == true){
+				frappe.msgprint("You selected Draft or Cancelled documents")
+			}
 			if(docname.length >= 1){
 
 				var dialog = new frappe.ui.Dialog({

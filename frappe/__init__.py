@@ -176,6 +176,27 @@ def get_site_config(sites_path=None, site_path=None):
 
 	return _dict(config)
 
+def get_conf(site=None):
+	if hasattr(local, 'conf'):
+		return local.conf
+
+	else:
+		# if no site, get from common_site_config.json
+		with init_site(site):
+			return local.conf
+
+class init_site:
+	def __init__(self, site=None):
+		'''If site==None, initialize it for empty site ('') to load common_site_config.json'''
+		self.site = site or ''
+
+	def __enter__(self):
+		init(self.site)
+		return local
+
+	def __exit__(self, type, value, traceback):
+		destroy()
+
 def destroy():
 	"""Closes connection and releases werkzeug local."""
 	if db:
@@ -191,7 +212,6 @@ def cache():
 	if not redis_server:
 		from frappe.utils.redis_wrapper import RedisWrapper
 		redis_server = RedisWrapper.from_url(conf.get('redis_cache')
-			or conf.get("cache_redis_server")
 			or "redis://localhost:11311")
 	return redis_server
 
@@ -318,7 +338,7 @@ def sendmail(recipients=(), sender="", subject="No Subject", message="No Message
 		unsubscribe_method=None, unsubscribe_params=None, unsubscribe_message=None,
 		attachments=None, content=None, doctype=None, name=None, reply_to=None,
 		cc=(), show_as_cc=(), message_id=None, in_reply_to=None, as_bulk=False, send_after=None, expose_recipients=False,
-		bulk_priority=1):
+		bulk_priority=1, communication=None):
 	"""Send email using user's default **Email Account** or global default **Email Account**.
 
 
@@ -339,6 +359,7 @@ def sendmail(recipients=(), sender="", subject="No Subject", message="No Message
 	:param in_reply_to: Used to send the Message-Id of a received email back as In-Reply-To.
 	:param send_after: Send after the given datetime.
 	:param expose_recipients: Display all recipients in the footer message - "This email was sent to"
+	:param communication: Communication link to be set in Bulk Email record
 	"""
 
 	if bulk or as_bulk:
@@ -348,7 +369,7 @@ def sendmail(recipients=(), sender="", subject="No Subject", message="No Message
 			reference_doctype = doctype or reference_doctype, reference_name = name or reference_name,
 			unsubscribe_method=unsubscribe_method, unsubscribe_params=unsubscribe_params, unsubscribe_message=unsubscribe_message,
 			attachments=attachments, reply_to=reply_to, cc=cc, show_as_cc=show_as_cc, message_id=message_id, in_reply_to=in_reply_to,
-			send_after=send_after, expose_recipients=expose_recipients, bulk_priority=bulk_priority)
+			send_after=send_after, expose_recipients=expose_recipients, bulk_priority=bulk_priority, communication=communication)
 	else:
 		import frappe.email
 		if as_markdown:
@@ -426,13 +447,16 @@ def clear_cache(user=None, doctype=None):
 
 	frappe.local.role_permissions = {}
 
-def has_permission(doctype, ptype="read", doc=None, user=None, verbose=False, throw=False):
+def has_permission(doctype=None, ptype="read", doc=None, user=None, verbose=False, throw=False):
 	"""Raises `frappe.PermissionError` if not permitted.
 
 	:param doctype: DocType for which permission is to be check.
 	:param ptype: Permission type (`read`, `write`, `create`, `submit`, `cancel`, `amend`). Default: `read`.
 	:param doc: [optional] Checks User permissions for given doc.
 	:param user: [optional] Check for given user. Default: current user."""
+	if not doctype and doc:
+		doctype = doc.doctype
+
 	import frappe.permissions
 	out = frappe.permissions.has_permission(doctype, ptype, doc=doc, verbose=verbose, user=user)
 	if throw and not out:
@@ -460,7 +484,7 @@ def has_website_permission(doctype, ptype="read", doc=None, user=None, verbose=F
 			doc = get_doc(doctype, doc)
 
 		for method in hooks:
-			result = call(get_attr(method), doc=doc, ptype=ptype, user=user, verbose=verbose)
+			result = call(method, doc=doc, ptype=ptype, user=user, verbose=verbose)
 			# if even a single permission check is Falsy
 			if not result:
 				return False
@@ -677,6 +701,22 @@ def get_installed_apps(sort=False, frappe_last=False):
 
 	return installed
 
+def get_doc_hooks():
+	'''Returns hooked methods for given doc. It will expand the dict tuple if required.'''
+	if not hasattr(local, 'doc_events_hooks'):
+		hooks = get_hooks('doc_events', {})
+		out = {}
+		for key, value in hooks.iteritems():
+			if isinstance(key, tuple):
+				for doctype in key:
+					append_hook(out, doctype, value)
+			else:
+				append_hook(out, key, value)
+
+		local.doc_events_hooks = out
+
+	return local.doc_events_hooks
+
 def get_hooks(hook=None, default=None, app_name=None):
 	"""Get hooks via `app/hooks.py`
 
@@ -700,19 +740,6 @@ def get_hooks(hook=None, default=None, app_name=None):
 					append_hook(hooks, key, getattr(app_hooks, key))
 		return hooks
 
-	def append_hook(target, key, value):
-		if isinstance(value, dict):
-			target.setdefault(key, {})
-			for inkey in value:
-				append_hook(target[key], inkey, value[inkey])
-		else:
-			append_to_list(target, key, value)
-
-	def append_to_list(target, key, value):
-		target.setdefault(key, [])
-		if not isinstance(value, list):
-			value = [value]
-		target[key].extend(value)
 
 	if app_name:
 		hooks = _dict(load_app_hooks(app_name))
@@ -723,6 +750,26 @@ def get_hooks(hook=None, default=None, app_name=None):
 		return hooks.get(hook) or (default if default is not None else [])
 	else:
 		return hooks
+
+def append_hook(target, key, value):
+	'''appends a hook to the the target dict.
+
+	If the hook key, exists, it will make it a key.
+
+	If the hook value is a dict, like doc_events, it will
+	listify the values against the key.
+	'''
+	if isinstance(value, dict):
+		# dict? make a list of values against each key
+		target.setdefault(key, {})
+		for inkey in value:
+			append_hook(target[key], inkey, value[inkey])
+	else:
+		# make a list
+		target.setdefault(key, [])
+		if not isinstance(value, list):
+			value = [value]
+		target[key].extend(value)
 
 def setup_module_map():
 	"""Rebuild map of all modules (internal)."""
@@ -789,6 +836,9 @@ def get_attr(method_string):
 
 def call(fn, *args, **kwargs):
 	"""Call a function and match arguments."""
+	if isinstance(fn, basestring):
+		fn = get_attr(fn)
+
 	if hasattr(fn, 'fnargs'):
 		fnargs = fn.fnargs
 	else:

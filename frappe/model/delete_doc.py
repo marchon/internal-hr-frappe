@@ -70,6 +70,7 @@ def delete_doc(doctype=None, name=None, force=0, ignore_doctypes=None, for_reloa
 
 				if not ignore_on_trash:
 					doc.run_method("on_trash")
+					doc.run_method('on_change')
 
 				dynamic_linked_doctypes = [df.parent for df in get_dynamic_link_map().get(doc.doctype, [])]
 				if "ToDo" in dynamic_linked_doctypes:
@@ -138,7 +139,7 @@ def delete_from_table(doctype, name, ignore_doctypes, doc):
 
 def check_permission_and_not_submitted(doc):
 	# permission
-	if frappe.session.user!="Administrator" and not doc.has_permission("delete"):
+	if not doc.flags.ignore_permissions and frappe.session.user!="Administrator" and not doc.has_permission("delete"):
 		frappe.msgprint(_("User not allowed to delete {0}: {1}").format(doc.doctype, doc.name), raise_exception=True)
 
 	# check if submitted

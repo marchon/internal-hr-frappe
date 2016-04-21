@@ -5,7 +5,7 @@ app_publisher = "Frappe Technologies"
 app_description = "Full stack web framework with Python, Javascript, MariaDB, Redis, Node"
 
 app_icon = "octicon octicon-circuit-board"
-app_version = "6.27.10"
+app_version = "6.27.13"
 app_color = "orange"
 source_link = "https://github.com/frappe/frappe"
 app_license = "MIT"
@@ -111,6 +111,7 @@ scheduler_events = {
 		"frappe.email.doctype.email_account.email_account.pull",
 		"frappe.email.doctype.email_account.email_account.notify_unreplied",
 		"frappe.utils.error.collect_error_snapshots",
+		"frappe.model.utils.link_count.update_link_count",
 	],
 	"daily": [
 		"frappe.email.bulk.clear_outbox",
@@ -147,3 +148,12 @@ sounds = [
 	# {"name": "alert", "src": "/assets/frappe/sounds/alert.mp3"},
 	# {"name": "chime", "src": "/assets/frappe/sounds/chime.mp3"},
 ]
+
+bot_parsers = [
+	'frappe.utils.bot.ShowNotificationBot',
+	'frappe.utils.bot.GetOpenListBot',
+	'frappe.utils.bot.ListBot',
+	'frappe.utils.bot.FindBot',
+	'frappe.utils.bot.CountBot'
+]
+

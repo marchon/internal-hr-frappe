@@ -5,12 +5,12 @@ frappe.provide("frappe.ui.form");
 frappe.ui.form.Toolbar = Class.extend({
 	init: function(opts) {
 		$.extend(this, opts);
-		this.make_menu();
 		this.refresh();
 		this.add_update_button_on_dirty();
 		this.setup_editable_title();
 	},
 	refresh: function() {
+		this.make_menu();
 		this.set_title();
 		this.page.clear_user_actions();
 		this.show_title_as_dirty();
@@ -96,16 +96,27 @@ frappe.ui.form.Toolbar = Class.extend({
 		}
 	},
 	make_menu: function() {
+		this.page.clear_icons();
+		this.page.clear_menu();
 		var me = this;
 		var p = this.frm.perm[0];
 		var docstatus = cint(this.frm.doc.docstatus);
+		var is_submittable = frappe.model.is_submittable(this.frm.doc.doctype)
+
+		var print_settings = frappe.model.get_doc(":Print Settings", "Print Settings")
+		var allow_print_for_draft = cint(print_settings.allow_print_for_draft);
+		var allow_print_for_cancelled = cint(print_settings.allow_print_for_cancelled);
 
 		// Print
-		if(frappe.model.can_print(null, me.frm)) {
-			this.page.add_menu_item(__("Print"), function() {
-				me.frm.print_doc();}, true);
-			this.print_icon = this.page.add_action_icon("icon-print", function() {
-				me.frm.print_doc();});
+		if(!is_submittable || docstatus == 1  ||
+			(allow_print_for_cancelled && docstatus == 2)||
+	 		(allow_print_for_draft && docstatus == 0)) {
+			if(frappe.model.can_print(null, me.frm)) {
+				this.page.add_menu_item(__("Print"), function() {
+					me.frm.print_doc();}, true);
+				this.print_icon = this.page.add_action_icon("icon-print", function() {
+					me.frm.print_doc();});
+			}
 		}
 
 		// email
@@ -146,7 +157,7 @@ frappe.ui.form.Toolbar = Class.extend({
 
 		// New
 		if(p[CREATE] && !this.frm.meta.issingle) {
-			this.page.add_menu_item(__("New {0}", [__(me.frm.doctype)]), function() {
+			this.page.add_menu_item(__("New {0} (Ctrl+B)", [__(me.frm.doctype)]), function() {
 				new_doc(me.frm.doctype);}, true);
 		}
 
@@ -211,7 +222,9 @@ frappe.ui.form.Toolbar = Class.extend({
 	},
 	get_action_status: function() {
 		var status = null;
-		if (this.can_submit()) {
+		if (this.frm.page.current_view_name==='print' || this.frm.hidden) {
+			status = "Edit";
+		} else if (this.can_submit()) {
 			status = "Submit";
 		} else if (this.can_save()) {
 			if (!this.frm.save_disabled) {
@@ -230,12 +243,19 @@ frappe.ui.form.Toolbar = Class.extend({
 		var me = this;
 		this.page.clear_actions();
 
-		var perm_to_check = this.frm.action_perm_type_map[status];
-		if(!this.frm.perm[0][perm_to_check]) {
-			return;
+		if(status!== 'Edit') {
+			var perm_to_check = this.frm.action_perm_type_map[status];
+			if(!this.frm.perm[0][perm_to_check]) {
+				return;
+			}
 		}
 
-		if(status == "Cancel") {
+		if(status === "Edit") {
+			this.page.set_primary_action(__("Edit"), function() {
+				me.frm.page.set_view('main');
+				me.frm.set_hidden(false);
+			}, 'octicon octicon-pencil');
+		} else if(status === "Cancel") {
 			this.page.set_secondary_action(__(status), function() {
 				me.frm.savecancel(this);
 			}, "octicon octicon-circle-slash");
